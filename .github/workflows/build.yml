@@ -1,4 +1,4 @@
-name: Probe PDFium WASM
+name: Build PDFium WASM
 
 on:
   push:
@@ -7,38 +7,16 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
-  probe:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Verify free build environment
-        run: |
-          set -eux
-          uname -a
-          git --version
-          python3 --version
-          cmake --version
-          ninja --version || true
-      - name: Check upstream PDFium editing APIs
-        run: |
-          set -eux
-          git clone --depth=1 https://pdfium.googlesource.com/pdfium.git upstream-pdfium
-          grep -n "FPDFText_SetText" upstream-pdfium/public/fpdf_edit.h
-          grep -n "FPDFPage_GenerateContent" upstream-pdfium/public/fpdf_edit.h
-          grep -n "FPDFText_GetTextObject" upstream-pdfium/public/fpdf_text.h
-          grep -n "FPDFTextObj_GetText" upstream-pdfium/public/fpdf_edit.h
-      - name: Record probe
-        run: |
-          mkdir -p dist
-          {
-            echo "PDFTop PDFium WASM probe"
-            echo "commit: $GITHUB_SHA"
-            echo "status: required editing APIs found in upstream headers"
-          } > dist/probe.txt
-      - uses: actions/upload-artifact@v4
-        with:
-          name: pdftop-pdfium-probe
-          path: dist/
-          if-no-files-found: error
+  wasm:
+    name: PDFium WASM
+    uses: bblanchon/pdfium-binaries/.github/workflows/build.yml@master
+    with:
+      branch: main
+      target_os: emscripten
+      target_cpu: wasm
+      enable_v8: false
+      is_debug: false
+      build_type: shared
