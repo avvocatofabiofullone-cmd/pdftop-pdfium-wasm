@@ -11,12 +11,55 @@ permissions:
 
 jobs:
   wasm:
-    name: PDFium WASM
-    uses: bblanchon/pdfium-binaries/.github/workflows/build.yml@master
-    with:
-      branch: main
-      target_os: emscripten
-      target_cpu: wasm
-      enable_v8: false
-      is_debug: false
-      build_type: shared
+    runs-on: ubuntu-24.04
+    env:
+      PDFium_BRANCH: main
+      PDFium_IS_DEBUG: "false"
+      PDFium_TARGET_CPU: wasm
+      PDFium_TARGET_OS: emscripten
+      PDFium_TARGET_ENVIRONMENT: ""
+      PDFium_ENABLE_V8: "false"
+      PDFium_BUILD_TYPE: shared
+      PDFium_VERSION: ""
+      EMSDK_VERSION: 3.1.72
+      MUSL_URL: ""
+    steps:
+      - name: Checkout PDFTop build repo
+        uses: actions/checkout@v6
+        with:
+          path: pdftop
+          persist-credentials: false
+      - name: Checkout pdfium-binaries build scripts
+        uses: actions/checkout@v6
+        with:
+          repository: bblanchon/pdfium-binaries
+          ref: master
+          path: builder
+          persist-credentials: false
+      - name: Build PDFium for WebAssembly
+        working-directory: builder
+        shell: bash
+        run: |
+          set -euxo pipefail
+          steps/00-environment.sh
+          steps/01-install.sh
+          steps/02-checkout.sh
+          steps/03-patch.sh
+          steps/04-install-extras.sh
+          steps/05-configure.sh
+          steps/06-build.sh
+          steps/07-stage.sh
+          steps/08-licenses.sh
+      - name: Verify editing symbols in staged output
+        working-directory: builder
+        shell: bash
+        run: |
+          set -euxo pipefail
+          find staging -maxdepth 3 -type f -print
+          grep -R -a -l "FPDFText_SetText" staging || true
+      - name: Upload PDFium WASM
+        uses: actions/upload-artifact@v6
+        with:
+          name: pdfium-wasm
+          path: builder/staging/
+          if-no-files-found: error
